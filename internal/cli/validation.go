@@ -6,7 +6,7 @@ import (
 	"strings"
 )
 
-// validateModulePath validates the Go module path format
+// validateModulePath validates a string to ensure it is a valid Go module path (e.g., github.com/user/project)
 func validateModulePath(path string) error {
 	if len(path) == 0 {
 		return fmt.Errorf("module path cannot be empty")
@@ -27,7 +27,7 @@ func validateModulePath(path string) error {
 	return nil
 }
 
-// validateProjectName validates the project name format
+// validateProjectName validates a string to ensure it is a valid Go project name (similar to package name rules)
 func validateProjectName(name string) error {
 	if len(name) == 0 {
 		return fmt.Errorf("project name cannot be empty")

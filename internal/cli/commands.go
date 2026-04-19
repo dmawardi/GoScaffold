@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"embed"
 	"flag"
 	"fmt"
 	"log"
@@ -16,7 +17,8 @@ const (
 	defaultOutputDir   = "."
 )
 
-func RunCreateCommand() {
+// RunCreateCommand handles the "create" subcommand logic: Creating a new project from a template
+func RunCreateCommand(templateFS embed.FS) {
 	// Create a new FlagSet for the create subcommand
 	createCmd := flag.NewFlagSet("create", flag.ExitOnError)
 
@@ -46,6 +48,7 @@ func RunCreateCommand() {
 	// Parse the arguments after "create"
 	createCmd.Parse(os.Args[2:])
 
+	// If help flag is set, show usage and exit
 	if *help {
 		createCmd.Usage()
 		return
@@ -58,13 +61,20 @@ func RunCreateCommand() {
 		os.Exit(1)
 	}
 
+	// Validate required arguments
+	if *modulePath == "" {
+		fmt.Fprintf(os.Stderr, "Error: Module path is required\n\n")
+		createCmd.Usage()
+		os.Exit(1)
+	}
+
 	// Validate project name format
 	if err := validateProjectName(*projectName); err != nil {
 		fmt.Fprintf(os.Stderr, "Error: %v\n", err)
 		os.Exit(1)
 	}
 
-	// Set default module path if not provided
+	// Set default module path if not provided (backup plan, should be caught by validation above)
 	if *modulePath == "" {
 		*modulePath = fmt.Sprintf("github.com/user/%s", *projectName)
 		if *verbose {
@@ -84,6 +94,7 @@ func RunCreateCommand() {
 		OutputDir:   *outputDir,
 		ModulePath:  *modulePath,
 		TemplateDir: *templateDir,
+		TemplateFS:  templateFS, // Pass the embedded template filesystem to the config
 		Force:       *force,
 		Verbose:     *verbose,
 	}
@@ -103,6 +114,7 @@ func RunCreateCommand() {
 		os.Exit(1)
 	}
 
+	// If verbose output is enabled, print the configuration being used
 	if cfg.Verbose {
 		fmt.Printf("Scaffolding project '%s'...\n", cfg.ProjectName)
 		fmt.Printf("Template: %s\n", cfg.TemplateDir)
@@ -111,7 +123,7 @@ func RunCreateCommand() {
 	}
 
 	// Create the generator and run it
-	gen := generator.New(cfg)
+	gen := generator.NewBaseGenerator(cfg)
 	if err := gen.Generate(); err != nil {
 		log.Fatalf("Failed to generate project: %v", err)
 	}

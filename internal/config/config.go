@@ -1,20 +1,22 @@
 package config
 
 import (
+	"embed"
 	"strings"
 )
 
 // Config holds the configuration for project scaffolding
 type Config struct {
-	ProjectName string // Name of the project to be created
-	OutputDir   string // Directory where the project will be created
-	ModulePath  string // Go module path (e.g., github.com/user/project)
-	TemplateDir string // Directory containing the template
-	Force       bool   // Whether to overwrite existing directories
-	Verbose     bool   // Whether to show verbose output
+	ProjectName string   // Name of the project to be created
+	OutputDir   string   // Directory where the project will be created
+	ModulePath  string   // Go module path (e.g., github.com/user/project)
+	TemplateDir string   // Directory containing the template
+	TemplateFS  embed.FS // Optional: embedded template filesystem (if using embed)
+	Force       bool     // Whether to overwrite existing directories
+	Verbose     bool     // Whether to show verbose output
 }
 
-// GetReplacements returns a map of template replacements
+// GetReplacements returns a map of template-specific replacements
 func (c *Config) GetReplacements() map[string]string {
 	return map[string]string{
 		"goTemplate":                     c.ProjectName,
@@ -29,7 +31,7 @@ func (c *Config) GetReplacements() map[string]string {
 	}
 }
 
-// GetPathReplacements returns a map for replacing directory and file names
+// GetPathReplacements returns a map of path-specific replacements (e.g., for renaming directories/files)
 func (c *Config) GetPathReplacements() map[string]string {
 	return map[string]string{
 		"goTemplate": c.ProjectName,
@@ -61,7 +63,7 @@ func (c *Config) IsTextFile(filename string) bool {
 	return false
 }
 
-// ShouldSkipFile determines if a file should be skipped during copying
+// ShouldSkipFile checks a filename against hardcoded patterns of files/directories to skip during generation
 func (c *Config) ShouldSkipFile(filename string) bool {
 	skipPatterns := []string{
 		".git",
@@ -75,6 +77,7 @@ func (c *Config) ShouldSkipFile(filename string) bool {
 		"*.log",
 	}
 
+	// Check if filename contains any of the skip patterns
 	for _, pattern := range skipPatterns {
 		if strings.Contains(filename, pattern) {
 			return true

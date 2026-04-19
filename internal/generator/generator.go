@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"embed"
 	"fmt"
 	"io"
 	"os"
@@ -11,23 +12,27 @@ import (
 	"github.com/dmawardi/goScaffold/internal/config"
 )
 
-// Generator handles project scaffolding
-type Generator struct {
-	config *config.Config
+// BaseGenerator handles project scaffolding
+type BaseGenerator struct {
+	config         *config.Config
+	baseTemplateFS embed.FS
 }
 
-// New creates a new Generator instance
-func New(cfg *config.Config) *Generator {
-	return &Generator{
+// NewBaseGenerator creates a new BaseGenerator instance
+func NewBaseGenerator(cfg *config.Config) *BaseGenerator {
+	return &BaseGenerator{
 		config: cfg,
 	}
 }
 
 // Generate creates a new project from the template
-func (g *Generator) Generate() error {
+func (g *BaseGenerator) Generate() error {
 	outputPath := filepath.Join(g.config.OutputDir, g.config.ProjectName)
 
-	// Create output directory
+	// Create output directory with 0755 permissions (rwxr-xr-x):
+	// owner gets full read/write/execute; group and others get read/execute only.
+	// Execute permission on a directory allows traversal (cd into it), which is
+	// required for any tools (go build, editors, etc.) to access files inside.
 	if err := os.MkdirAll(outputPath, 0755); err != nil {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
@@ -35,6 +40,11 @@ func (g *Generator) Generate() error {
 	// Copy and process template
 	if err := g.processTemplate(g.config.TemplateDir, outputPath); err != nil {
 		return fmt.Errorf("failed to process template: %w", err)
+	}
+
+	// Initialise go.mod with the user-supplied module path
+	if err := g.runGoModInit(outputPath); err != nil {
+		return fmt.Errorf("failed to run go mod init: %w", err)
 	}
 
 	// Run go mod tidy
@@ -46,7 +56,7 @@ func (g *Generator) Generate() error {
 }
 
 // processTemplate walks through the template directory and processes each file
-func (g *Generator) processTemplate(templateDir, outputDir string) error {
+func (g *BaseGenerator) processTemplate(templateDir, outputDir string) error {
 	return filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
 		if err != nil {
 			return err
@@ -66,10 +76,11 @@ func (g *Generator) processTemplate(templateDir, outputDir string) error {
 			return nil
 		}
 
-		// Replace path components
+		// Replace path components for destination output path
 		destPath := g.replacePath(relPath)
 		fullDestPath := filepath.Join(outputDir, destPath)
 
+		// If verbose output is enabled, print the file being processed
 		if g.config.Verbose {
 			fmt.Printf("Processing: %s -> %s\n", relPath, destPath)
 		}
@@ -85,7 +96,7 @@ func (g *Generator) processTemplate(templateDir, outputDir string) error {
 }
 
 // replacePath replaces template placeholders in file/directory paths
-func (g *Generator) replacePath(path string) string {
+func (g *BaseGenerator) replacePath(path string) string {
 	replacements := g.config.GetPathReplacements()
 
 	// Split path and replace each component
@@ -100,7 +111,7 @@ func (g *Generator) replacePath(path string) string {
 }
 
 // processFile copies and processes a single file
-func (g *Generator) processFile(srcPath, destPath string, info os.FileInfo) error {
+func (g *BaseGenerator) processFile(srcPath, destPath string, info os.FileInfo) error {
 	// Create destination directory if it doesn't exist
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
@@ -131,8 +142,8 @@ func (g *Generator) processFile(srcPath, destPath string, info os.FileInfo) erro
 	return err
 }
 
-// processTextFile reads the file content and applies replacements
-func (g *Generator) processTextFile(src io.Reader, dest io.Writer) error {
+// processTextFile reads the file contents and applies replacements
+func (g *BaseGenerator) processTextFile(src io.Reader, dest io.Writer) error {
 	// Read entire file content
 	content, err := io.ReadAll(src)
 	if err != nil {
@@ -148,7 +159,7 @@ func (g *Generator) processTextFile(src io.Reader, dest io.Writer) error {
 }
 
 // applyReplacements applies all configured text replacements
-func (g *Generator) applyReplacements(content string) string {
+func (g *BaseGenerator) applyReplacements(content string) string {
 	replacements := g.config.GetReplacements()
 
 	// Apply replacements in a specific order to avoid partial matches
@@ -165,6 +176,7 @@ func (g *Generator) applyReplacements(content string) string {
 		"{{.ProjectNameUpper}}",
 	}
 
+	// Iterate through ordered keys above and apply replacements within the file
 	for _, key := range orderedKeys {
 		if replacement, exists := replacements[key]; exists {
 			content = strings.ReplaceAll(content, key, replacement)
@@ -174,8 +186,28 @@ func (g *Generator) applyReplacements(content string) string {
 	return content
 }
 
+// runGoModInit runs `go mod init <modulePath>` inside the generated project directory,
+// creating the go.mod file with the correct module declaration. The template does not
+// ship with a go.mod because the module path is only known at generation time.
+func (g *BaseGenerator) runGoModInit(projectDir string) error {
+	if g.config.Verbose {
+		fmt.Printf("Running 'go mod init %s'...\n", g.config.ModulePath)
+	}
+
+	cmd := exec.Command("go", "mod", "init", g.config.ModulePath)
+	cmd.Dir = projectDir
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("go mod init failed: %w", err)
+	}
+
+	return nil
+}
+
 // runGoModTidy runs 'go mod tidy' in the generated project directory
-func (g *Generator) runGoModTidy(projectDir string) error {
+func (g *BaseGenerator) runGoModTidy(projectDir string) error {
 	if g.config.Verbose {
 		fmt.Println("Running 'go mod tidy'...")
 	}

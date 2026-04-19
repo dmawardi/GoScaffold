@@ -17,7 +17,7 @@ func main() {
 
 	switch command {
 	case "create":
-		cli.RunCreateCommand()
+		cli.RunCreateCommand(getGoTemplate()) // Pass the embedded goTemplate filesystem to the create command
 	case "help", "-h", "--help":
 		cli.PrintUsage()
 	case "version", "-v", "--version":
