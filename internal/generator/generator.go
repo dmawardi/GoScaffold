@@ -4,6 +4,7 @@ import (
 	"embed"
 	"fmt"
 	"io"
+	"io/fs"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -37,8 +38,8 @@ func (g *BaseGenerator) Generate() error {
 		return fmt.Errorf("failed to create output directory: %w", err)
 	}
 
-	// Copy and process template
-	if err := g.processTemplate(g.config.TemplateDir, outputPath); err != nil {
+	// Copy and process template files from the embedded filesystem
+	if err := g.processTemplate(outputPath); err != nil {
 		return fmt.Errorf("failed to process template: %w", err)
 	}
 
@@ -55,20 +56,33 @@ func (g *BaseGenerator) Generate() error {
 	return nil
 }
 
-// processTemplate walks through the template directory and processes each file
-func (g *BaseGenerator) processTemplate(templateDir, outputDir string) error {
-	return filepath.Walk(templateDir, func(path string, info os.FileInfo, err error) error {
+// templateRoot is the path prefix used by the embedded TemplateFS.
+// All entries in the FS live under this prefix, so it must be stripped
+// before constructing the destination path in the output directory.
+const templateRoot = "templates/goTemplate"
+
+// processTemplate walks the embedded TemplateFS and mirrors its structure
+// into outputDir, applying all placeholder substitutions along the way.
+func (g *BaseGenerator) processTemplate(outputDir string) error {
+	return fs.WalkDir(g.config.TemplateFS, templateRoot, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return err
 		}
 
-		// Calculate relative path from template directory
-		relPath, err := filepath.Rel(templateDir, path)
+		// Strip the embedded root prefix to obtain the path relative to the
+		// template root (e.g. "templates/goTemplate/cmd/main.go" -> "cmd/main.go").
+		relPath, err := filepath.Rel(templateRoot, path)
 		if err != nil {
 			return err
 		}
 
-		// Skip if this file should be ignored
+		// The root entry itself ("." after stripping the prefix) has nothing to
+		// create — the output directory was already created in Generate.
+		if relPath == "." {
+			return nil
+		}
+
+		// Skip files and directories matched by the configured ignore list.
 		if g.config.ShouldSkipFile(relPath) {
 			if g.config.Verbose {
 				fmt.Printf("Skipping: %s\n", relPath)
@@ -76,7 +90,8 @@ func (g *BaseGenerator) processTemplate(templateDir, outputDir string) error {
 			return nil
 		}
 
-		// Replace path components for destination output path
+		// Substitute placeholder tokens in each path component
+		// (e.g. "goTemplate" -> "myproject") before joining with the output root.
 		destPath := g.replacePath(relPath)
 		fullDestPath := filepath.Join(outputDir, destPath)
 
@@ -85,13 +100,14 @@ func (g *BaseGenerator) processTemplate(templateDir, outputDir string) error {
 			fmt.Printf("Processing: %s -> %s\n", relPath, destPath)
 		}
 
-		if info.IsDir() {
-			// Create directory
-			return os.MkdirAll(fullDestPath, info.Mode())
+		if d.IsDir() {
+			// Recreate the directory in the output tree with standard permissions.
+			return os.MkdirAll(fullDestPath, 0755)
 		}
 
-		// Process file
-		return g.processFile(path, fullDestPath, info)
+		// Delegate file copying and content transformation to processFile,
+		// passing the full embedded FS path so it can be opened from the FS.
+		return g.processFile(path, fullDestPath)
 	})
 }
 
@@ -110,29 +126,34 @@ func (g *BaseGenerator) replacePath(path string) string {
 	return strings.Join(parts, string(filepath.Separator))
 }
 
-// processFile copies and processes a single file
-func (g *BaseGenerator) processFile(srcPath, destPath string, info os.FileInfo) error {
-	// Create destination directory if it doesn't exist
+// processFile reads a single file from the embedded TemplateFS (using its full
+// FS path), applies content substitution if it is a text file, then writes the
+// result to destPath on the real filesystem.
+func (g *BaseGenerator) processFile(srcPath, destPath string) error {
+	// Ensure the parent directory exists before creating the file.
 	destDir := filepath.Dir(destPath)
 	if err := os.MkdirAll(destDir, 0755); err != nil {
 		return err
 	}
 
-	// Open source file
-	srcFile, err := os.Open(srcPath)
+	// Open the source file from the embedded filesystem.
+	srcFile, err := g.config.TemplateFS.Open(srcPath)
 	if err != nil {
 		return err
 	}
 	defer srcFile.Close()
 
-	// Create destination file
-	destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, info.Mode())
+	// Create the destination file with standard read/write permissions.
+	// Embedded FS files are always read-only (0444), so we use 0644 explicitly
+	// to ensure the generated files are editable by the project owner.
+	destFile, err := os.OpenFile(destPath, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0644)
 	if err != nil {
 		return err
 	}
 	defer destFile.Close()
 
-	// Check if this is a text file that needs content replacement
+	// Text files have their placeholder tokens substituted before writing.
+	// Binary files are streamed directly without modification.
 	if g.config.IsTextFile(filepath.Base(srcPath)) {
 		return g.processTextFile(srcFile, destFile)
 	}
