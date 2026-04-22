@@ -19,8 +19,8 @@ type ModuleConfig struct {
 // GetReplacements returns a map of template-specific replacements
 func (c *ModuleConfig) GetReplacements() map[string]string {
 	return map[string]string{
-		"moduleName":                     strings.ToLower(c.ModuleName), // e.g., "myModule"
-		"github.com/dmawardi/goTemplate": c.ProjectPath,                 // Note: lowercase 't' to match template
+		"moduleName":                     strings.ToLower(c.ModuleName[:1]) + c.ModuleName[1:], // e.g., "myModule"
+		"github.com/dmawardi/goTemplate": c.ProjectPath,                                        // Note: lowercase 't' to match template
 		"ModuleName":                     strings.Title(c.ModuleName),
 	}
 }
