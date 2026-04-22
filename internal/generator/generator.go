@@ -1,7 +1,6 @@
 package generator
 
 import (
-	"embed"
 	"fmt"
 	"io"
 	"io/fs"
@@ -15,8 +14,7 @@ import (
 
 // BaseGenerator handles project scaffolding
 type BaseGenerator struct {
-	config         *config.Config
-	baseTemplateFS embed.FS
+	config *config.Config
 }
 
 // NewBaseGenerator creates a new BaseGenerator instance
@@ -83,7 +81,7 @@ func (g *BaseGenerator) processTemplate(outputDir string) error {
 		}
 
 		// Skip files and directories matched by the configured ignore list.
-		if g.config.ShouldSkipFile(relPath) {
+		if ShouldSkipFile(relPath) {
 			if g.config.Verbose {
 				fmt.Printf("Skipping: %s\n", relPath)
 			}
@@ -154,7 +152,7 @@ func (g *BaseGenerator) processFile(srcPath, destPath string) error {
 
 	// Text files have their placeholder tokens substituted before writing.
 	// Binary files are streamed directly without modification.
-	if g.config.IsTextFile(filepath.Base(srcPath)) {
+	if IsTextFile(filepath.Base(srcPath)) {
 		return g.processTextFile(srcFile, destFile)
 	}
 

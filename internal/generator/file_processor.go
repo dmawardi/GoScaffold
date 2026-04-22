@@ -151,7 +151,7 @@ func (fp *FileProcessor) GetProcessingStrategy(filename string) string {
 		return "go_mod"
 	case base == "dockerfile" || strings.HasSuffix(base, ".dockerfile"):
 		return "dockerfile"
-	case fp.config.IsTextFile(filename):
+	case IsTextFile(filename):
 		return "text_file"
 	default:
 		return "binary_file"

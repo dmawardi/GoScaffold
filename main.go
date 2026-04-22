@@ -18,6 +18,8 @@ func main() {
 	switch command {
 	case "create":
 		cli.RunCreateCommand(getGoTemplate()) // Pass the embedded goTemplate filesystem to the create command
+	case "module":
+		cli.RunModuleCommand(getModuleTemplate()) // Pass the embedded module template filesystem to the module command
 	case "help", "-h", "--help":
 		cli.PrintUsage()
 	case "version", "-v", "--version":
