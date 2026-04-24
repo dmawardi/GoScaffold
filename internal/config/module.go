@@ -7,13 +7,14 @@ import (
 
 // ModuleConfig holds the configuration for module scaffolding
 type ModuleConfig struct {
-	ProjectName      string   // Needs to be obtained from the current project directory name
-	ProjectPath      string   // Needs to be obtained from the current go.mod file
-	ModuleName       string   // Obtained from cli flag
-	OutputDir        string   // Directory where the module will be created
-	ModuleTemplateFS embed.FS // Optional: embedded module template filesystem (if using embed)
-	Force            bool     // Whether to overwrite existing directories
-	Verbose          bool     // Whether to show verbose output
+	ProjectName          string   // Needs to be obtained from the current project directory name
+	ProjectPath          string   // Needs to be obtained from the current go.mod file
+	ModuleName           string   // Obtained from cli flag
+	OutputDir            string   // Directory where the module will be created
+	ModuleTemplateFS     embed.FS // embedded module template filesystem (if using embed)
+	ModuleTestTemplateFS embed.FS // embedded module test template filesystem (if using embed)
+	Force                bool     // Whether to overwrite existing directories
+	Verbose              bool     // Whether to show verbose output
 }
 
 // GetReplacements returns a map of template-specific replacements

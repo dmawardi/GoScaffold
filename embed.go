@@ -11,9 +11,17 @@ import (
 //go:embed templates/moduleName
 var moduleTemplateFS embed.FS
 
+//go:embed templates/moduleName_test.go
+var moduleTestTemplateFS embed.FS
+
 // getModuleTemplate returns the embedded module template filesystem
 func getModuleTemplate() embed.FS {
 	return moduleTemplateFS
+}
+
+// getModuleTestTemplate returns the embedded module e2e test template filesystem
+func getModuleTestTemplate() embed.FS {
+	return moduleTestTemplateFS
 }
 
 //go:embed templates/goTemplate

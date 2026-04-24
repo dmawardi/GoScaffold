@@ -61,8 +61,8 @@ func (g *ModuleGenerator) Generate() error {
 	}
 
 	// Make e2e tests in cmd/projectName folder of current project
-	if err := g.updateE2ETests(); err != nil {
-		return fmt.Errorf("failed to update e2e tests: %w", err)
+	if err := g.generateE2ETest(); err != nil {
+		return fmt.Errorf("failed to generate e2e tests: %w", err)
 	}
 
 	return nil
@@ -121,6 +121,31 @@ func (g *ModuleGenerator) processTemplate(outputPath string) error {
 
 		return nil
 	})
+}
+
+// generateE2ETest reads the embedded moduleName_test.go, applies placeholder
+// replacements, and writes it to cmd/<ProjectName>/<moduleName>_test.go.
+func (g *ModuleGenerator) generateE2ETest() error {
+	const srcPath = "templates/moduleName_test.go"
+
+	// Open the single embedded test template file
+	srcFile, err := g.config.ModuleTestTemplateFS.Open(srcPath)
+	if err != nil {
+		return fmt.Errorf("failed to open test template: %w", err)
+	}
+	defer srcFile.Close()
+
+	// Destination: cmd/<ProjectName>/<moduleName>_test.go
+	moduleName := strings.ToLower(g.config.ModuleName[:1]) + g.config.ModuleName[1:]
+	destPath := filepath.Join(".", "cmd", g.config.ProjectName, moduleName+"_test.go")
+
+	destFile, err := os.Create(destPath)
+	if err != nil {
+		return fmt.Errorf("failed to create destination file: %w", err)
+	}
+	defer destFile.Close()
+
+	return g.processTextFile(srcFile, destFile)
 }
 
 // processTextFile reads the file contents and applies replacements
@@ -357,9 +382,4 @@ func (g *ModuleGenerator) updateRoutes() error {
 	}
 
 	return os.WriteFile(configPath, []byte(content), 0644)
-}
-
-func (g *ModuleGenerator) updateE2ETests() error {
-	// TODO
-	return nil
 }

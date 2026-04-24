@@ -136,7 +136,7 @@ func RunCreateCommand(templateFS embed.FS) {
 	fmt.Printf("  go run cmd/%s/main.go\n", cfg.ProjectName)
 }
 
-func RunModuleCommand(moduleTemplateFS embed.FS) {
+func RunModuleCommand(moduleTemplateFS embed.FS, moduleTestTemplateFS embed.FS) {
 	// Create a new FlagSet for the module subcommand
 	moduleCmd := flag.NewFlagSet("module", flag.ExitOnError)
 
@@ -184,13 +184,14 @@ func RunModuleCommand(moduleTemplateFS embed.FS) {
 
 	// Create configuration
 	cfg := &config.ModuleConfig{
-		ProjectName:      projectName, // Taken from the current project directory
-		ProjectPath:      projectPath, // Taken from the current go.mod file
-		ModuleName:       *moduleName,
-		OutputDir:        "./internal",     // Modules are created inside the current project's internal directory
-		ModuleTemplateFS: moduleTemplateFS, // Pass the embedded module template filesystem to the config
-		Force:            *force,
-		Verbose:          *verbose,
+		ProjectName:          projectName, // Taken from the current project directory
+		ProjectPath:          projectPath, // Taken from the current go.mod file
+		ModuleName:           *moduleName,
+		OutputDir:            "./internal",         // Modules are created inside the current project's internal directory
+		ModuleTemplateFS:     moduleTemplateFS,     // Pass the embedded module template filesystem to the config
+		ModuleTestTemplateFS: moduleTestTemplateFS, // Pass the embedded module test template filesystem to the config
+		Force:                *force,
+		Verbose:              *verbose,
 	}
 
 	// If verbose output is enabled, print the configuration being used
