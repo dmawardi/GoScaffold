@@ -60,6 +60,11 @@ func (g *ModuleGenerator) Generate() error {
 		return fmt.Errorf("failed to update routes: %w", err)
 	}
 
+	// Add permissions to internal/auth/rbac_policy.csv
+	if err := g.updateRBACPolicy(); err != nil {
+		return fmt.Errorf("failed to update RBAC policy: %w", err)
+	}
+
 	// Make e2e tests in cmd/projectName folder of current project
 	if err := g.generateE2ETest(); err != nil {
 		return fmt.Errorf("failed to generate e2e tests: %w", err)
@@ -382,4 +387,42 @@ func (g *ModuleGenerator) updateRoutes() error {
 	}
 
 	return os.WriteFile(configPath, []byte(content), 0644)
+}
+
+func (g *ModuleGenerator) updateRBACPolicy() error {
+	policyPath := filepath.Join(".", "internal", "auth", "rbac_policy.csv")
+
+	moduleName := strings.ToLower(g.config.ModuleName[:1]) + g.config.ModuleName[1:]
+	// Routes are registered at the plural path (e.g. /api/posts)
+	apiPath := "/api/" + moduleName + "s"
+
+	block := fmt.Sprintf(
+		"\n\n# %s\np,role:user,%s,read\np,role:moderator,%s,update\np,role:admin,%s,delete\np,role:admin,%s,create\n",
+		moduleName,
+		apiPath,
+		apiPath,
+		apiPath,
+		apiPath,
+	)
+
+	// Read existing content to check if entries are already present
+	existing, err := os.ReadFile(policyPath)
+	if err != nil {
+		return fmt.Errorf("failed to read RBAC policy file: %w", err)
+	}
+	if strings.Contains(string(existing), apiPath) {
+		return nil
+	}
+
+	file, err := os.OpenFile(policyPath, os.O_APPEND|os.O_WRONLY, 0644)
+	if err != nil {
+		return fmt.Errorf("failed to open RBAC policy file: %w", err)
+	}
+	defer file.Close()
+
+	if _, err := file.WriteString(block); err != nil {
+		return fmt.Errorf("failed to write RBAC policy entries: %w", err)
+	}
+
+	return nil
 }

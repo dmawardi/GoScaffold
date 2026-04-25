@@ -208,8 +208,6 @@ func RunModuleCommand(moduleTemplateFS embed.FS, moduleTestTemplateFS embed.FS) 
 	}
 
 	fmt.Printf("✅ Module '%s' successfully created inside the current project\n", cfg.ModuleName)
-	fmt.Printf("Go Mod Details found:\n  Project Name: %s\n  Module Path: %s\n", cfg.ProjectName, cfg.ProjectPath)
-	fmt.Printf("Module config replacements:\n %+v", cfg.GetReplacements())
 }
 
 // Checks the current directory for go.mod and extracts the project name and module path
