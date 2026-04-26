@@ -15,6 +15,31 @@ A command-line tool to quickly scaffold new Go projects from templates.
 
 ## Installation
 
+### Global Installation (recommended)
+
+Build and install the binary as `nugz` so it's available anywhere on your system:
+
+```bash
+# Build and install to your Go bin directory (must be in PATH)
+go build -o nugz . && mv nugz $(go env GOPATH)/bin/nugz
+```
+
+If `$(go env GOPATH)/bin` is not in your PATH, add it to your shell profile:
+
+```bash
+# For zsh (~/.zshrc) or bash (~/.bash_profile)
+export PATH="$PATH:$(go env GOPATH)/bin"
+```
+
+Then reload your shell (`source ~/.zshrc`) and use the tool from any directory:
+
+```bash
+nugz create -name myproject -module github.com/user/myproject
+nugz module -name product
+```
+
+### Local Build
+
 ```bash
 # Build from source
 go build -o goScaffold
