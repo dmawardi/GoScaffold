@@ -100,10 +100,13 @@ func RunCreateCommand(templateFS embed.FS) {
 		Verbose:     *verbose,
 	}
 
-	// Validate template directory exists
-	if _, err := os.Stat(cfg.TemplateDir); os.IsNotExist(err) {
-		fmt.Fprintf(os.Stderr, "Error: Template directory '%s' does not exist\n", cfg.TemplateDir)
-		os.Exit(1)
+	// Validate template directory exists on disk only when a custom template path is provided.
+	// The default template is embedded in the binary and does not exist on the filesystem.
+	if *templateDir != defaultTemplateDir {
+		if _, err := os.Stat(cfg.TemplateDir); os.IsNotExist(err) {
+			fmt.Fprintf(os.Stderr, "Error: Template directory '%s' does not exist\n", cfg.TemplateDir)
+			os.Exit(1)
+		}
 	}
 
 	// Create output path
